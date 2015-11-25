@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using VRage.Library.Utils;
+﻿using System.Collections.Generic;
+using VRage.Utils;
 
 namespace VRage.Input
 {
@@ -25,14 +21,14 @@ namespace VRage.Input
         #region CODES
         private static readonly Dictionary<MyJoystickAxesEnum, char> XBOX_AXES_CODES = new Dictionary<MyJoystickAxesEnum, char>()
         {
-            { MyJoystickAxesEnum.Xneg, '\xe009' },
-            { MyJoystickAxesEnum.Xpos, '\xe009' },
-            { MyJoystickAxesEnum.Ypos, '\xe009' },
-            { MyJoystickAxesEnum.Yneg, '\xe009' },
-            { MyJoystickAxesEnum.RotationXneg, '\xe00a' },
-            { MyJoystickAxesEnum.RotationXpos, '\xe00a' },
-            { MyJoystickAxesEnum.RotationYneg, '\xe00a' },
-            { MyJoystickAxesEnum.RotationYpos, '\xe00a' },
+            { MyJoystickAxesEnum.Xneg, '\xe016' },
+            { MyJoystickAxesEnum.Xpos, '\xe015' },
+            { MyJoystickAxesEnum.Ypos, '\xe014' },
+            { MyJoystickAxesEnum.Yneg, '\xe017' },
+            { MyJoystickAxesEnum.RotationXneg, '\xe020' },
+            { MyJoystickAxesEnum.RotationXpos, '\xe019' },
+            { MyJoystickAxesEnum.RotationYneg, '\xe021' },
+            { MyJoystickAxesEnum.RotationYpos, '\xe018' },
             { MyJoystickAxesEnum.Zneg, '\xe007' },
             { MyJoystickAxesEnum.Zpos, '\xe008' },
         };
@@ -84,10 +80,7 @@ namespace VRage.Input
                     else if (ParentContext != null)
                         return ParentContext[id];
                     else
-                    {
-                        //Debug.Assert(false, "Binding not found");
                         return m_nullControl;
-                    }
                 }
                 set
                 {
@@ -97,7 +90,7 @@ namespace VRage.Input
 
             public Context()
             {
-                Bindings = new Dictionary<MyStringId, IControl>();
+                Bindings = new Dictionary<MyStringId, IControl>(MyStringId.Comparer);
             }
         }
 
@@ -200,7 +193,7 @@ namespace VRage.Input
         }
 
         private static EmptyControl m_nullControl = new EmptyControl();
-        private static Dictionary<MyStringId, Context> m_bindings = new Dictionary<MyStringId, Context>();
+        private static Dictionary<MyStringId, Context> m_bindings = new Dictionary<MyStringId, Context>(MyStringId.Comparer);
 
         static MyControllerHelper()
         {
@@ -265,16 +258,16 @@ namespace VRage.Input
                 m_bindings[context][key] = m_nullControl;
         }
 
-        public static bool IsControl(MyStringId context, MyStringId stringId, MyControlStateType type = MyControlStateType.NEW_PRESSED)
+        public static bool IsControl(MyStringId context, MyStringId stringId, MyControlStateType type = MyControlStateType.NEW_PRESSED, bool joystickOnly = false)
         {
             switch (type)
             { // temporary included cuz bindings support only joystick
                 case MyControlStateType.NEW_PRESSED:
-                    return MyInput.Static.IsNewGameControlPressed(stringId) || m_bindings[context][stringId].IsNewPressed();
+                    return (!joystickOnly && MyInput.Static.IsNewGameControlPressed(stringId)) || m_bindings[context][stringId].IsNewPressed();
                 case MyControlStateType.NEW_RELEASED:
-                    return MyInput.Static.IsNewGameControlReleased(stringId) || m_bindings[context][stringId].IsNewReleased();
+                    return (!joystickOnly &&  MyInput.Static.IsNewGameControlReleased(stringId)) || m_bindings[context][stringId].IsNewReleased();
                 case MyControlStateType.PRESSED:
-                    return MyInput.Static.IsGameControlPressed(stringId) || m_bindings[context][stringId].IsPressed();
+                    return (!joystickOnly && MyInput.Static.IsGameControlPressed(stringId)) || m_bindings[context][stringId].IsPressed();
             }
 
             return false;

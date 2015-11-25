@@ -70,8 +70,7 @@ namespace Sandbox.Game.AI
             ActionCollection botActions = null;
             if (!m_botActions.ContainsKey(newBot.BotActions.GetType()))
             {
-                botActions = new ActionCollection();
-                GetBotActions(newBot, botActions);
+                botActions = ActionCollection.CreateActionCollection(newBot);
                 m_botActions[newBot.GetType()] = botActions;
             }
             else
@@ -121,11 +120,11 @@ namespace Sandbox.Game.AI
                     bool isCompatible = behaviorTree.IsCompatibleWithBot(bot.ActionCollection);
                     if (!isCompatible)
                     {
-                        bot.BehaviorTree = null;
+                        m_behaviorTreeCollection.UnassignBotBehaviorTree(bot);
                     }
                     else
                     {
-                        bot.BotMemory.ResetMemory(behaviorTree);
+                        bot.BotMemory.ResetMemory();
                     }
                 }
             }
@@ -208,9 +207,9 @@ namespace Sandbox.Game.AI
             return bot as BotType;
         }
 
-        public DictionaryValuesReader<int, IMyBot> GetAllBots()
+        public DictionaryReader<int, IMyBot> GetAllBots()
         {
-            return new DictionaryValuesReader<int, IMyBot>(m_allBots);
+            return new DictionaryReader<int, IMyBot>(m_allBots);
         }
 
         public void GetBotsData(List<MyObjectBuilder_AIComponent.BotData> botDataList)
@@ -226,37 +225,27 @@ namespace Sandbox.Game.AI
             }
         }
 
-        private void GetBotActions(IMyBot bot, ActionCollection actions)
+        public int GetCreatedBotCount()
         {
-            var methodInfos = bot.BotActions.GetType().GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
-            foreach (var methodInfo in methodInfos)
+            int count = 0;
+            foreach (var bot in m_allBots.Values)
             {
-                var attrs = methodInfo.GetCustomAttributes(true);
-                for (int i = 0; i < attrs.Length; i++)
-                {
-                    if (attrs[i] is MyBehaviorTreeActionAttribute)
-                    {
-                        MyBehaviorTreeActionAttribute btActionAttribute = (MyBehaviorTreeActionAttribute)attrs[i];
-
-                        switch (btActionAttribute.ActionType)
-                        {
-                            case MyBehaviorTreeActionType.INIT:
-                                actions.AddInitAction(btActionAttribute.ActionName, (x) => methodInfo.Invoke(x.BotActions, null));
-                                break;
-                            case MyBehaviorTreeActionType.BODY:
-                                actions.AddAction(btActionAttribute.ActionName, methodInfo, btActionAttribute.ReturnsRunning, (x, y) => (MyBehaviorTreeState)methodInfo.Invoke(x.BotActions, y));
-                                break;
-                            case MyBehaviorTreeActionType.POST:
-                                actions.AddPostAction(btActionAttribute.ActionName, (x) => methodInfo.Invoke(x.BotActions, null));
-                                break;
-                        }
-                        
-                        break;
-                    }
-                }
+                if (bot.CreatedByPlayer)
+                    count++;
             }
+            return count;
         }
 
+        public int GetGeneratedBotCount()
+        {
+            int count = 0;
+            foreach (var bot in m_allBots.Values)
+            {
+                if (!bot.CreatedByPlayer)
+                    count++;
+            }
+            return count;
+        }
 #region Debug
         internal void SelectBotForDebugging(IMyBot bot)
         {

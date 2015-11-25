@@ -19,12 +19,12 @@ namespace VRageMath
         /// <summary>
         /// Gets or sets the x-component of the vector.
         /// </summary>
-        [ProtoBuf.ProtoMember(1)]
+        [ProtoBuf.ProtoMember]
         public float X;
         /// <summary>
         /// Gets or sets the y-component of the vector.
         /// </summary>
-        [ProtoBuf.ProtoMember(2)]
+        [ProtoBuf.ProtoMember]
         public float Y;
 
         static Vector2()
@@ -1018,6 +1018,23 @@ namespace VRageMath
             float num = 1f / divider;
             result.X = value1.X * num;
             result.Y = value1.Y * num;
+        }
+
+        public bool Between(ref Vector2 start, ref Vector2 end)
+        {
+            return X >= start.X && X <= end.X || Y >= start.Y && Y <= end.Y;
+        }
+
+        public static Vector2 Floor(Vector2 position)
+        {
+            return new Vector2((float)Math.Floor(position.X), (float)Math.Floor(position.Y));
+        }
+
+        public void Rotate(double angle)
+        {
+            float tmpX = X;
+            X = X * (float)Math.Cos(angle) - Y * (float)Math.Sin(angle);
+            Y = Y * (float)Math.Cos(angle) + tmpX * (float)Math.Sin(angle);
         }
     }
 }

@@ -2,23 +2,16 @@
 
 using ProtoBuf;
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Serializer;
-using Sandbox.Common.ObjectBuilders.VRageData;
-using Sandbox.Definitions;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Game.Components;
-using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Cube;
-using Sandbox.Game.GameSystems;
 using Sandbox.Game.World;
 using SteamSDK;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text;
-using VRage.Library.Utils;
+using VRage.Audio;
+using VRage.Utils;
 using VRageMath;
 
 #endregion
@@ -32,16 +25,16 @@ namespace Sandbox.Game.Multiplayer
         [MessageId(11889, P2PMessageEnum.Reliable)]
         struct ThrowMsg
         {
-            [ProtoMember(1)]
+            [ProtoMember]
             public MyObjectBuilder_CubeGrid Grid;
-            [ProtoMember(2)]
+            [ProtoMember]
             public Vector3D Position;
-            [ProtoMember(3)]
+            [ProtoMember]
             public Vector3D LinearVelocity;
-            [ProtoMember(4)]
+            [ProtoMember]
             public float Mass;
-            [ProtoMember(5)]
-            public MyStringId ThrowSound;
+            [ProtoMember]
+            public MyCueId ThrowSound;
         }
 
 
@@ -51,7 +44,7 @@ namespace Sandbox.Game.Multiplayer
             MySyncLayer.RegisterMessage<ThrowMsg>(OnThrowMessageSuccess, MyMessagePermissions.FromServer, MyTransportMessageEnum.Success);
         }
 
-        public static void RequestThrow(MyObjectBuilder_CubeGrid grid, Vector3D position, Vector3D linearVelocity, float mass, MyStringId throwSound)
+        public static void RequestThrow(MyObjectBuilder_CubeGrid grid, Vector3D position, Vector3D linearVelocity, float mass, MyCueId throwSound)
         {
             ThrowMsg msg = new ThrowMsg();
             msg.Grid = grid;

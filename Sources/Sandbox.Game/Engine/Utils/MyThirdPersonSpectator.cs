@@ -3,12 +3,14 @@ using Sandbox.Common;
 using Sandbox.Engine.Physics;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Character;
 using Sandbox.Game.World;
 using Sandbox.ModAPI.Interfaces;
 using System;
 using System.Collections.Generic;
 using VRage;
 using VRage.Input;
+using VRage.ModAPI;
 using VRageMath;
 
 namespace Sandbox.Engine.Utils
@@ -102,8 +104,8 @@ namespace Sandbox.Engine.Utils
         Matrix m_orientationMatrix;
 
         List<MyPhysics.HitInfo> m_raycastList = new List<MyPhysics.HitInfo>();
-        HashSet<Sandbox.ModAPI.IMyEntity> m_raycastHashSet = new HashSet<Sandbox.ModAPI.IMyEntity>();
-        List<HkRigidBody> m_rigidList = new List<HkRigidBody>();
+        HashSet<IMyEntity> m_raycastHashSet = new HashSet<IMyEntity>();
+        List<HkBodyCollision> m_rigidList = new List<HkBodyCollision>();
 
         bool m_saveSettings;
 
@@ -159,6 +161,13 @@ namespace Sandbox.Engine.Utils
                 return;
 
             var headMatrix = controlledEntity.GetHeadMatrix(true);
+
+            if (controlledEntity is MyCharacter)
+            {
+                var character = controlledEntity as MyCharacter;
+                headMatrix = character.Get3rdBoneMatrix(true, true);
+            }
+
             m_targetOrientation = (Matrix)headMatrix.GetOrientation();
             m_target = headMatrix.Translation;
 
@@ -290,9 +299,9 @@ namespace Sandbox.Engine.Utils
                 if (m_rigidList.Count > 0)
                 {
                     bool sameGrid = false;
-                    if (MySession.ControlledEntity != null && m_rigidList[0] != null)
+                    if (MySession.ControlledEntity != null && m_rigidList[0].Body != null)
                     {
-                        sameGrid = m_rigidList[0].UserObject == ((MyEntity)MySession.ControlledEntity).Physics;
+                        sameGrid = m_rigidList[0].GetCollisionEntity() == MySession.ControlledEntity;
                     }
 
                     if (sameGrid)
@@ -323,8 +332,8 @@ namespace Sandbox.Engine.Utils
                 }
 
                 var matrix = MatrixD.CreateTranslation(shapeCastLine.From);
-                    HkContactPointData? cpd;
-                if (controlledEntity.Physics.CharacterProxy != null)
+                HkContactPointData? cpd;
+                if (controlledEntity.Physics != null && controlledEntity.Physics.CharacterProxy != null)
                     cpd = MyPhysics.CastShapeReturnContactData(shapeCastLine.To, shape, ref matrix, controlledEntity.Physics.CharacterCollisionFilter, 0.0f); 
                 else
                     cpd = MyPhysics.CastShapeReturnContactData(shapeCastLine.To, shape, ref matrix, HkGroupFilter.CalcFilterInfo(MyPhysics.DefaultCollisionLayer,0), 0.0f);
@@ -378,10 +387,10 @@ namespace Sandbox.Engine.Utils
                     || rb.HkHitInfo.Body.UserObject == null
                     || !(rb.HkHitInfo.Body.UserObject is MyPhysicsBody))
                     continue;
-                if (rb.HkHitInfo.Body.GetEntity() is IMyHandheldGunObject<Sandbox.Game.Weapons.MyDeviceBase>) // ignore player weapons
+                if (rb.HkHitInfo.GetHitEntity() is IMyHandheldGunObject<Sandbox.Game.Weapons.MyDeviceBase>) // ignore player weapons
                     continue;
 
-                m_raycastHashSet.Add(((MyPhysicsBody)rb.HkHitInfo.Body.UserObject).Entity);
+                m_raycastHashSet.Add(rb.HkHitInfo.GetHitEntity());
             }
 
             if (m_raycastHashSet.Count > 1)
@@ -467,6 +476,27 @@ namespace Sandbox.Engine.Utils
             Vector3D center = Vector3D.Transform((Vector3D)localAABBHr.Center, topControlledEntity.WorldMatrix);
 
             var safeOBB = new MyOrientedBoundingBoxD(center, localAABBHr.HalfExtents, Quaternion.CreateFromRotationMatrix(topControlledEntity.WorldMatrix.GetOrientation()));
+            //VRageRender.MyRenderProxy.DebugDrawOBB(safeOBB, Vector3.One, 1, false, false);
+            //VRageRender.MyRenderProxy.DebugDrawAxis(topControlledEntity.WorldMatrix, 2, false);
+
+			bool camPosIsOk = HandleIntersection(topControlledEntity, safeOBB, topControlledEntity is Sandbox.Game.Entities.Character.MyCharacter || cameraController is MyShipController, true, m_target, m_targetOrientation.Forward);
+
+            return camPosIsOk;
+        }
+
+        public bool IsCameraPositionOk(Matrix worldMatrix)
+        {
+            IMyCameraController cameraController = MySession.Static.CameraController;
+            if (cameraController == null)
+                return true;
+
+            MyEntity topControlledEntity = ((MyEntity)cameraController).GetTopMostParent();
+            if (topControlledEntity.Closed) return false;
+
+            var localAABBHr = topControlledEntity.PositionComp.LocalAABBHr;
+            Vector3D center = Vector3D.Transform((Vector3D)localAABBHr.Center, worldMatrix);
+
+            var safeOBB = new MyOrientedBoundingBoxD(center, localAABBHr.HalfExtents, Quaternion.CreateFromRotationMatrix(worldMatrix.GetOrientation()));
             //VRageRender.MyRenderProxy.DebugDrawOBB(safeOBB, Vector3.One, 1, false, false);
             //VRageRender.MyRenderProxy.DebugDrawAxis(topControlledEntity.WorldMatrix, 2, false);
 
@@ -562,7 +592,8 @@ namespace Sandbox.Engine.Utils
 
         public void UpdateZoom()
         {
-            bool canZoom = !MyPerGameSettings.ZoomRequiresLookAroundPressed || MyInput.Static.IsGameControlPressed(Sandbox.Game.MyControlsSpace.LOOKAROUND);
+            bool canZoom = (!MyPerGameSettings.ZoomRequiresLookAroundPressed || MyInput.Static.IsGameControlPressed(Sandbox.Game.MyControlsSpace.LOOKAROUND)) 
+                && !MySession.Static.Battle;
 
             if (canZoom && !MyInput.Static.IsAnyCtrlKeyPressed() && !MyInput.Static.IsAnyShiftKeyPressed())
             {

@@ -17,8 +17,6 @@ namespace VRage.Import
         VOXELS_DEBRIS,              //  For explosion debris objects, with scaling and texture is calculated by tri-planar mapping (same as with voxel maps)
         VOXEL_MAP,                  //  Destroyable voxel asteroid
         ALPHA_MASKED,               //  Alpha masked object
-        ATMOSPHERE,
-        PLANET_SURFACE,
 
         //Leave decal type last because it is alpha blended, meshes are sorted by this enum
         DECAL,                      //  Alpha blended object, it has alpha in diffuse.a texture channel and emissivity in normal.a texture channel
@@ -34,7 +32,7 @@ namespace VRage.Import
         GLASS, //Cockpit glass rendering through billboards
 
         MESH_INSTANCED_GENERIC, //Classic instancing
-        MESH_INSTANCED_GENERIC_MASKED
+        MESH_INSTANCED_GENERIC_MASKED,
     }
 
     public static class PositionPacker
@@ -129,6 +127,10 @@ namespace VRage.Import
                 bRes = m_MaterialDesc.Read(reader, version);
 
                 bRes &= Enum.TryParse(m_MaterialDesc.Technique, out Technique);
+                if (m_MaterialDesc.Technique == "FOLIAGE")
+                {
+                    Technique = MyMeshDrawTechnique.ALPHA_MASKED;
+                }
             }
             else
             {

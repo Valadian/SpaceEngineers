@@ -2,6 +2,7 @@
 
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
+using Sandbox.Engine.Utils;
 using Sandbox.Game.World;
 using Sandbox.Graphics;
 using Sandbox.Graphics.TransparentGeometry;
@@ -116,20 +117,17 @@ namespace Sandbox.Game.Entities.Cube
 
         public void CalculateRotationHints(MatrixD drawMatrix, BoundingBoxD worldBox, bool draw, bool fixedAxes = false, bool hideForwardAndUpArrows = false)
         {
-            MatrixD cameraMatrix = drawMatrix;
-            cameraMatrix = MatrixD.Invert(cameraMatrix);
-            cameraMatrix *= drawMatrix.GetOrientation();
-            cameraMatrix *= MySector.MainCamera.ViewMatrixAtZero;
+			drawMatrix.Translation = Vector3D.Zero;
+			MatrixD drawInverse = MatrixD.Invert(drawMatrix);
+			drawInverse *= drawMatrix.GetOrientation();
+			drawInverse *= MySector.MainCamera.ViewMatrixAtZero;
 
-            m_viewProjection.View = cameraMatrix;
+			MatrixD camWorld = MatrixD.Invert(drawInverse); //MatrixD.Invert(MySector.MainCamera.ViewMatrixAtZero)*MatrixD.Invert(drawMatrix.GetOrientation())*drawMatrix;
+
+			m_viewProjection.ViewAtZero = MatrixD.CreateLookAt(Vector3D.Zero, camWorld.Forward, camWorld.Up);
+			m_viewProjection.ViewAtZero.Translation = new Vector3D(0,0,-6);
+			m_viewProjection.View = drawInverse;
             m_viewProjection.View.Translation += new Vector3D(0, 0, -6);
-            
-            MatrixD camWorld = MatrixD.Invert(cameraMatrix);
-
-            cameraMatrix = MatrixD.CreateLookAt(Vector3D.Zero, camWorld.Forward, camWorld.Up);
-            cameraMatrix.Translation = new Vector3D(0,0,-6);
-
-            m_viewProjection.ViewAtZero = cameraMatrix;
             m_viewProjection.CameraPosition = camWorld.Translation;
 
             Vector2 screenSize = MyGuiManager.GetScreenSizeFromNormalizedSize(Vector2.One);
@@ -228,13 +226,20 @@ namespace Sandbox.Game.Entities.Cube
 
             string rightControlName1 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_HORISONTAL_POSITIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
             string rightControlName2 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_HORISONTAL_NEGATIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
-
             string upControlName1 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_VERTICAL_POSITIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
             string upControlName2 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_VERTICAL_NEGATIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
-
             string forwControlName1 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_ROLL_POSITIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
             string forwControlName2 = MyInput.Static.GetGameControl(MyControlsSpace.CUBE_ROTATE_ROLL_NEGATIVE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard).ToString();
 
+            if (MyInput.Static.IsJoystickConnected())
+            {
+                rightControlName1 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_HORISONTAL_POSITIVE).ToString();
+                rightControlName2 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_HORISONTAL_NEGATIVE).ToString();
+                upControlName1 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_VERTICAL_POSITIVE).ToString();
+                upControlName2 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_VERTICAL_NEGATIVE).ToString();
+                forwControlName1 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_ROLL_POSITIVE).ToString();
+                forwControlName2 = MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_BUILD_MODE, MyControlsSpace.CUBE_ROTATE_ROLL_NEGATIVE).ToString();
+            }
 
             Vector3D rightStart = Vector3D.Zero;
             Vector3D rightEnd = Vector3D.Zero;

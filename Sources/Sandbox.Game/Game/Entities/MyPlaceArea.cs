@@ -1,42 +1,61 @@
 ﻿#region Using
 
 using Sandbox.Common.Components;
-using Sandbox.Common.ObjectBuilders;
 using Sandbox.Engine.Utils;
-using Sandbox.Game.Components;
-using Sandbox.Game.Multiplayer;
-using Sandbox.Game.World;
 using System;
 using System.Collections.Generic;
+using VRage.Components;
+using VRage.Utils;
 using VRageMath;
 
 #endregion
 
 namespace Sandbox.Game.Entities
 {
-    [MyEntityType(typeof(MyObjectBuilder_PlaceArea))]
-    class MyPlaceArea : MyEntity
+    public abstract class MyPlaceArea : MyEntityComponentBase
     {
         public int PlaceAreaProxyId = MyConstants.PRUNING_PROXY_ID_UNITIALIZED;
 
-        public MyPlaceArea() 
-        {
-            this.PositionComp = new MyPositionComponent();
-            PositionComp.LocalMatrix = Matrix.Identity;
+        public abstract BoundingBoxD WorldAABB { get; }
+        public MyStringHash AreaType { get; private set; }
 
-            AddDebugRenderComponent(new MyDebugRenderComponent(this));
+        public static MyPlaceArea FromEntity(long entityId)
+        {
+            MyPlaceArea area = null;
+            MyEntity entity = null;
+            if (!MyEntities.TryGetEntityById(entityId, out entity))
+                return area;
+
+            if (entity.Components.TryGet<MyPlaceArea>(out area))
+                return area;
+            else
+                return null;
         }
 
-        public override void OnAddedToScene(object source)
+        public MyPlaceArea(MyStringHash areaType)
         {
-            base.OnAddedToScene(source);
-            MyPlaceAreas.AddPlaceArea(this);
+            AreaType = areaType;
         }
 
-        public override void OnRemovedFromScene(object source)
+        public override void OnAddedToContainer()
         {
-            MyPlaceAreas.RemovePlaceArea(this);
-            base.OnRemovedFromScene(source);
+            base.OnAddedToContainer();
+			MyPlaceAreas.Static.AddPlaceArea(this);
+        }
+
+        public override void OnBeforeRemovedFromContainer()
+        {
+            MyPlaceAreas.Static.RemovePlaceArea(this);
+            base.OnBeforeRemovedFromContainer();
+        }
+
+		public abstract double DistanceSqToPoint(Vector3D point);
+
+        public abstract bool TestPoint(Vector3D point);
+
+        public override string ComponentTypeDebugString
+        {
+            get { return "Place Area"; }
         }
     }
 }

@@ -22,21 +22,23 @@ using Sandbox.Graphics.TransparentGeometry;
 using Sandbox.Game.Screens.Terminal.Controls;
 using VRage.Utils;
 using Sandbox.Definitions;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.Localization;
+using VRage.Components;
+using VRage.ModAPI;
 
 namespace Sandbox.Game.Entities
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_Door))]
-    class MyDoor : MyFunctionalBlock, IMyPowerConsumer, ModAPI.IMyDoor
+    public class MyDoor : MyFunctionalBlock, ModAPI.IMyDoor
     {
         private const float CLOSED_DISSASEMBLE_RATIO = 3.3f;
 
-        private const float SLIDINGSPEED = 1.0f;
         private MySoundPair m_openSound;
         private MySoundPair m_closeSound;
 
         private float m_currOpening;
-        private float m_slidingSpeed;
+        private float m_currSpeed;
         private int m_lastUpdateTime;
 
         private MyEntitySubpart m_leftSubpart = null;
@@ -47,15 +49,9 @@ namespace Sandbox.Game.Entities
 
         public float MaxOpen = 1.2f;
 
-        public MyPowerReceiver PowerReceiver
-        {
-            get;
-            private set;
-        }
-
         protected override bool CheckIsWorking()
         {
-            return PowerReceiver.IsPowered && base.CheckIsWorking();
+            return ResourceSink.IsPowered && base.CheckIsWorking();
         }
 
         public override float DisassembleRatio
@@ -70,7 +66,7 @@ namespace Sandbox.Game.Entities
         {
             m_open = false;
             m_currOpening = 0f;
-            m_slidingSpeed = 0f;
+            m_currSpeed = 0f;
             SyncObject = new MySyncDoor(this);
         }
 
@@ -82,7 +78,7 @@ namespace Sandbox.Game.Entities
 
         private void UpdateEmissivity()
         {
-            if (Enabled && PowerReceiver.IsPowered)
+			if (Enabled && ResourceSink.IsPowered)
             {
                 MyCubeBlock.UpdateEmissiveParts(Render.RenderObjectIDs[0], 1.0f, Color.Green, Color.White);
                 OnStateChange();
@@ -99,13 +95,18 @@ namespace Sandbox.Game.Entities
             }
             set
             {
-                if (m_open != value && Enabled && PowerReceiver.IsPowered)
+				if (m_open != value && Enabled && ResourceSink.IsPowered)
                 {
                     m_open = value;
                     OnStateChange();
                     RaisePropertiesChanged();
                 }
             }
+        }
+
+        public float OpenRatio
+        {
+            get { return m_currOpening/MaxOpen; }
         }
 
         static MyDoor()
@@ -125,13 +126,13 @@ namespace Sandbox.Game.Entities
 
         protected override void OnEnabledChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             base.OnEnabledChanged();
         }
 
         public override void OnBuildSuccess(long builtBy)
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             base.OnBuildSuccess(builtBy);
         }
 
@@ -140,34 +141,39 @@ namespace Sandbox.Game.Entities
             base.Init(builder, cubeGrid);
 
             //m_subpartsSize = 0.5f * (0.5f * SlimBlock.CubeGrid.GridSize - 0.3f);
-
-            if (BlockDefinition is MyDoorDefinition)
+            var doorDefinition = BlockDefinition as MyDoorDefinition;
+	        MyStringHash resourceSinkGroup;
+            if (doorDefinition != null)
             {
-                var doorDefinition = (MyDoorDefinition)BlockDefinition;
                 MaxOpen = doorDefinition.MaxOpen;
                 m_openSound = new MySoundPair(doorDefinition.OpenSound);
                 m_closeSound = new MySoundPair(doorDefinition.CloseSound);
+				resourceSinkGroup = MyStringHash.GetOrCompute(doorDefinition.ResourceSinkGroup);
             }
             else
             {
                 MaxOpen = 1.2f;
                 m_openSound = new MySoundPair("BlockDoorSmallOpen");
                 m_closeSound = new MySoundPair("BlockDoorSmallClose");
+				resourceSinkGroup = MyStringHash.GetOrCompute("Doors");
             }
 
             var ob = (MyObjectBuilder_Door)builder;
             m_open = ob.State;
             m_currOpening = ob.Opening;
 
-            PowerReceiver = new MyPowerReceiver(MyConsumerGroupEnum.Doors,
-                false,
+			var sinkComp = new MyResourceSinkComponent();
+            sinkComp.Init(
+				resourceSinkGroup, 
                 MyEnergyConstants.MAX_REQUIRED_POWER_DOOR,
-                () => (Enabled && IsFunctional) ? PowerReceiver.MaxRequiredInput : 0f);
-            PowerReceiver.IsPoweredChanged += Receiver_IsPoweredChanged;
-            PowerReceiver.Update();
+				() => (Enabled && IsFunctional) ? sinkComp.MaxRequiredInput : 0f);
+			sinkComp.IsPoweredChanged += Receiver_IsPoweredChanged;
+			sinkComp.Update();
 
-            if (!Enabled || !PowerReceiver.IsPowered)
+	        ResourceSink = sinkComp;
+			if (!Enabled || !ResourceSink.IsPowered)
                 UpdateSlidingDoorsPosition(true);
+
 
             OnStateChange();
 
@@ -202,7 +208,7 @@ namespace Sandbox.Game.Entities
                 if ((m_leftSubpart.ModelCollision.HavokCollisionShapes != null) && (m_leftSubpart.ModelCollision.HavokCollisionShapes.Length > 0))
                 {
                     var shape = m_leftSubpart.ModelCollision.HavokCollisionShapes[0];
-                    m_leftSubpart.Physics = new Engine.Physics.MyPhysicsBody(m_leftSubpart, Engine.Physics.RigidBodyFlag.RBF_KINEMATIC);
+                    m_leftSubpart.Physics = new Engine.Physics.MyPhysicsBody(m_leftSubpart, RigidBodyFlag.RBF_KINEMATIC);
                     m_leftSubpart.Physics.IsPhantom = false;
                     Vector3 center = new Vector3(0.35f, 0f, 0f) + m_leftSubpart.PositionComp.LocalVolume.Center;
                     m_leftSubpart.Physics.CreateFromCollisionObject(shape, center, WorldMatrix, null, MyPhysics.KinematicDoubledCollisionLayer);
@@ -215,7 +221,7 @@ namespace Sandbox.Game.Entities
                 if ((m_rightSubpart.ModelCollision.HavokCollisionShapes != null) && (m_rightSubpart.ModelCollision.HavokCollisionShapes.Length > 0))
                 {
                     var shape = m_rightSubpart.ModelCollision.HavokCollisionShapes[0];
-                    m_rightSubpart.Physics = new Engine.Physics.MyPhysicsBody(m_rightSubpart, Engine.Physics.RigidBodyFlag.RBF_KINEMATIC);
+                    m_rightSubpart.Physics = new Engine.Physics.MyPhysicsBody(m_rightSubpart, RigidBodyFlag.RBF_KINEMATIC);
                     m_rightSubpart.Physics.IsPhantom = false;
                     Vector3 center = new Vector3(-0.35f, 0f, 0f) + m_rightSubpart.PositionComp.LocalVolume.Center;
                     m_rightSubpart.Physics.CreateFromCollisionObject(shape, center, WorldMatrix, null, MyPhysics.KinematicDoubledCollisionLayer);
@@ -236,10 +242,8 @@ namespace Sandbox.Game.Entities
 
         private void OnStateChange()
         {
-            if (m_open)
-                m_slidingSpeed = SLIDINGSPEED;
-            else
-                m_slidingSpeed = -SLIDINGSPEED;
+            float speed = ((MyDoorDefinition)BlockDefinition).OpeningSpeed;
+            m_currSpeed = m_open ? speed : -speed;
 
             NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME | MyEntityUpdateEnum.EACH_100TH_FRAME;
             m_lastUpdateTime = MySandboxGame.TotalGamePlayTimeInMilliseconds;
@@ -270,7 +274,7 @@ namespace Sandbox.Game.Entities
             if (CubeGrid.Physics == null)
                 return;
             //Update door position because of inaccuracies in high velocities
-            UpdateSlidingDoorsPosition(this.CubeGrid.Physics.LinearVelocity.LengthSquared() > 10);
+            UpdateSlidingDoorsPosition(this.CubeGrid.Physics.LinearVelocity.LengthSquared() > 10f);
         }
 
         public override void UpdateBeforeSimulation()
@@ -282,7 +286,7 @@ namespace Sandbox.Game.Entities
                 return;
             }
 
-            if (Enabled && PowerReceiver.IsPowered)
+			if (Enabled && ResourceSink.IsPowered)
             {
                 if (Open)
                     StartSound(m_openSound);
@@ -298,10 +302,10 @@ namespace Sandbox.Game.Entities
 
         private void UpdateCurrentOpening()
         {
-            if (Enabled && PowerReceiver.IsPowered)
+			if (Enabled && ResourceSink.IsPowered)
             {
                 float timeDelta = (MySandboxGame.TotalGamePlayTimeInMilliseconds - m_lastUpdateTime) / 1000f;
-                float deltaPos = m_slidingSpeed * timeDelta;
+                float deltaPos = m_currSpeed * timeDelta;
                 m_currOpening = MathHelper.Clamp(m_currOpening + deltaPos, 0f, MaxOpen);
             }
         }
@@ -362,7 +366,7 @@ namespace Sandbox.Game.Entities
 
         void ComponentStack_IsFunctionalChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
         }
 
         event Action<bool> DoorStateChanged;

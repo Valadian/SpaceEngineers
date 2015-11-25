@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using VRage;
-using VRage;
 using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
@@ -336,6 +335,7 @@ namespace Sandbox.Game.Gui
                 m_joystickCombobox = new MyGuiControlCombobox(m_controlsOriginRight + multiplierJoystick * MyGuiConstants.CONTROLS_DELTA + new Vector2(MyGuiConstants.COMBOBOX_MEDIUM_SIZE.X / 2.0f, 0));
                 m_joystickCombobox.ItemSelected += OnSelectJoystick;
                 AddJoysticksToComboBox();
+                m_joystickCombobox.Enabled = !MyFakes.ENFORCE_CONTROLLER || !MyInput.Static.IsJoystickConnected();
                 m_allControls[MyGuiControlTypeEnum.General].Add(m_joystickCombobox);
 
                 m_joystickSensitivitySlider = new MyGuiControlSlider(
@@ -383,7 +383,9 @@ namespace Sandbox.Game.Gui
             int counter = 0;
             bool selectedJoystick = false;
             m_joystickCombobox.AddItem(counter++, MyTexts.Get(MySpaceTexts.Disabled));
-            foreach (string joystickName in MyInput.Static.EnumerateJoystickNames())
+
+            var joysticks = MyInput.Static.EnumerateJoystickNames();
+            foreach (string joystickName in joysticks)
             {
                 m_joystickCombobox.AddItem(counter, new StringBuilder(joystickName));
                 if (MyInput.Static.JoystickInstanceName == joystickName)
@@ -490,9 +492,6 @@ namespace Sandbox.Game.Gui
             MyInput.Static.SetMouseYInversion(m_invertMouseYCheckbox.IsChecked);
             MyInput.Static.SetMouseSensitivity(m_mouseSensitivitySlider.Value);
 
-            MyInput.Static.SaveControls(MySandboxGame.Config.ControlsGeneral, MySandboxGame.Config.ControlsButtons);
-            MySandboxGame.Config.Save();
-
             if (MyFakes.ENABLE_JOYSTICK_SETTINGS)
             {
                 MyInput.Static.JoystickInstanceName = m_joystickCombobox.GetSelectedIndex() == 0 ? null : m_joystickCombobox.GetSelectedValue().ToString();
@@ -500,6 +499,9 @@ namespace Sandbox.Game.Gui
                 MyInput.Static.SetJoystickExponent(m_joystickExponentSlider.Value);
                 MyInput.Static.SetJoystickDeadzone(m_joystickDeadzoneSlider.Value);
             }
+
+            MyInput.Static.SaveControls(MySandboxGame.Config.ControlsGeneral, MySandboxGame.Config.ControlsButtons);
+            MySandboxGame.Config.Save();
 
             //MyGuiScreenGamePlay.Static.SetControlsChange(true);
             MyScreenManager.RecreateControls();
@@ -559,7 +561,8 @@ namespace Sandbox.Game.Gui
                 callback: null,
                 timeoutInMiliseconds: 0,
                 focusedResult: ResultEnum.YES,
-                canHideOthers: true)
+                canHideOthers: true,
+                size: null)
             {
                 DrawMouseCursor     = false;
                 m_isTopMostScreen   = false;

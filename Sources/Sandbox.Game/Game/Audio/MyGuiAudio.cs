@@ -8,7 +8,6 @@ using System.Text;
 using VRage.Audio;
 using VRage.Library.Utils;
 using VRage.Utils;
-using VRage.Utils;
 
 namespace Sandbox.Game.GUI
 {
@@ -40,7 +39,7 @@ namespace Sandbox.Game.GUI
         HudVocShipFuelNo,
 
     }
-    class MyGuiAudio : IMyGuiAudio
+    public class MyGuiAudio : IMyGuiAudio
     {
         public static bool HudWarnings;
         public static IMyGuiAudio Static { get; set; }
@@ -81,7 +80,7 @@ namespace Sandbox.Game.GUI
             }
         }
 
-        internal static MyStringId GetCue(MyGuiSounds sound)
+        internal static MyCueId GetCue(MyGuiSounds sound)
         {
             return m_sounds[sound].SoundId;
         }

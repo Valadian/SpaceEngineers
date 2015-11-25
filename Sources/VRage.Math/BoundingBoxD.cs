@@ -18,12 +18,12 @@ namespace VRageMath
         /// <summary>
         /// The minimum point the BoundingBox contains.
         /// </summary>
-        [ProtoBuf.ProtoMember(1)]
+        [ProtoBuf.ProtoMember]
         public Vector3D Min;
         /// <summary>
         /// The maximum point the BoundingBox contains.
         /// </summary>
-        [ProtoBuf.ProtoMember(2)]
+        [ProtoBuf.ProtoMember]
         public Vector3D Max;
 
         /// <summary>
@@ -55,6 +55,15 @@ namespace VRageMath
                 return a.Max != b.Max;
             else
                 return true;
+        }
+
+        public static BoundingBoxD operator +(BoundingBoxD a, Vector3D b)
+        {
+            BoundingBoxD c;
+            c.Max = a.Max + b;
+            c.Min = a.Min + b;
+                
+            return c;
         }
 
         /// <summary>
@@ -691,6 +700,9 @@ namespace VRageMath
 
         public double Distance(Vector3D point)
         {
+            if (Contains(point) == ContainmentType.Contains)
+                return 0;
+
             var clamp = Vector3D.Clamp(point, Min, Max);
             return Vector3D.Distance(clamp, point);
         }
